@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from app.api.news.routes import router as news_router
 from app.api.stocks.routes import router as stocks_router
 
 app = FastAPI(
@@ -9,6 +10,7 @@ app = FastAPI(
 )
 
 app.include_router(stocks_router, prefix="/stocks", tags=["Stocks"])
+app.include_router(news_router, prefix="/news", tags=["news"])
 
 
 @app.get("/")
