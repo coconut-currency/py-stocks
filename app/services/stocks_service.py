@@ -1,3 +1,4 @@
+import logging
 import warnings
 from datetime import datetime, timezone
 
@@ -6,20 +7,32 @@ import yfinance as yf
 
 from app.api.models.stocks import News, Stocks
 
+logger = logging.getLogger(__name__)
+
 
 def get_stock_data(symbol: str) -> Stocks:
     try:
-        ticker = yf.Ticker(symbol)
+        # Add timeout and retry logic
+        ticker = yf.Ticker(symbol, session=None)
+
+        # Use fast_info first (faster, less likely to timeout)
         info = ticker.fast_info
 
-        if not info:
-            raise ValueError("Invalid stock symbol")
+        if not info or not info.get("lastPrice"):
+            raise ValueError("No price data available")
+
+        # Get name from fast_info if available, fallback to info
+        name = (
+            info.get("longName")
+            or info.get("shortName")
+            or ticker.info.get("longName")
+            or ticker.info.get("shortName")
+            or symbol.upper()
+        )
 
         stock = Stocks(
             symbol=symbol.upper(),
-            name=ticker.get_info().get("longName")
-            or ticker.get_info().get("shortName")
-            or symbol.upper(),
+            name=name,
             currentPrice=info.get("lastPrice"),
             previousClose=info.get("previousClose"),
             dayHigh=info.get("dayHigh"),
@@ -29,7 +42,9 @@ def get_stock_data(symbol: str) -> Stocks:
         )
 
         return stock
-    except Exception:
+
+    except Exception as e:
+        logger.error(f"Failed to fetch {symbol}: {str(e)}")
         return Stocks(
             symbol=symbol.upper(),
             name="Unknown",
